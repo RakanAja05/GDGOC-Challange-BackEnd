@@ -1,0 +1,428 @@
+{
+  "info": {
+    "name": "GDGoC SaaS - Customer Role Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "conversationId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Register (customer)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Customer One\",\n  \"email\": \"customer1@example.com\",\n  \"password\": \"password\",\n  \"password_confirmation\": \"password\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Login (customer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.token) { pm.collectionVariables.set('token', json.token); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"customer1@example.com\",\n  \"password\": \"password\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Current User",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/user",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "user"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Inbox (customer)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/inbox",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            "inbox"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Conversation Detail (customer)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/{{conversationId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            "{{conversationId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Send Reply (customer)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/messages",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            "{{conversationId}}",
+            "messages"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Saya butuh bantuan untuk pesanan saya.\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "AI Issue Classification (requires agent/lead)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ai",
+            "analyze"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"issue\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "AI Sentiment Analysis (requires agent/lead)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ai",
+            "analyze"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"sentiment\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "AI Conversation Summary (requires agent/lead)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ai",
+            "analyze"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"summary\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "AI Response Suggestion (requires agent/lead)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ai",
+            "analyze"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"reply\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "AI Priority Indicator (requires agent/lead)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "ai",
+            "analyze"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"priority\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Logout (customer)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "logout"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
