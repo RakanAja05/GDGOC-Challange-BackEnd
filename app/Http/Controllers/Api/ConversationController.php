@@ -93,6 +93,9 @@ class ConversationController extends Controller
                 'customer_id',
                 'status',
                 'priority',
+                'sentiment',
+                'sentiment_score',
+                'issue_category',
                 'last_message_from',
                 'last_message_at',
                 'created_at',
@@ -100,7 +103,6 @@ class ConversationController extends Controller
             ])
             ->with([
                 'customer:id,name',
-                'aiInsight:id,conversation_id,sentiment,issue_category',
             ])
             ->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")
             ->orderByDesc('last_message_at')
@@ -114,8 +116,9 @@ class ConversationController extends Controller
                     'last_message_from' => $conversation->last_message_from,
                     'last_message_at' => $conversation->last_message_at,
                     'customer_name' => $conversation->customer?->name,
-                    'sentiment' => $conversation->aiInsight?->sentiment,
-                    'issue_category' => $conversation->aiInsight?->issue_category,
+                    'sentiment' => $conversation->sentiment,
+                    'sentiment_score' => $conversation->sentiment_score,
+                    'issue_category' => $conversation->issue_category,
                 ];
             });
 

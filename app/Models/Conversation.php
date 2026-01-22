@@ -19,6 +19,9 @@ class Conversation extends Model
         'customer_id',
         'status',
         'priority',
+        'sentiment',
+        'sentiment_score',
+        'issue_category',
         'last_message_from',
         'last_message_at',
     ];
@@ -28,6 +31,7 @@ class Conversation extends Model
      */
     protected $casts = [
         'last_message_at' => 'datetime',
+        'sentiment_score' => 'decimal:2',
     ];
 
     /**

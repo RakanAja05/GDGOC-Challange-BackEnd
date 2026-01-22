@@ -48,6 +48,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/conversations', [ConversationController::class, 'index']);
     Route::get('/conversations/{conversation}', [ConversationController::class, 'show']);
     Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'sendReply']);
-    Route::post('/v1/ai/analyze', [AIAnalysisController::class, 'analyze'])
+    Route::post('/v1/ai/inbox', [AIAnalysisController::class, 'inbox'])
+        ->middleware('role:agent,lead');
+    Route::post('/v1/ai/summary', [AIAnalysisController::class, 'summary'])
+        ->middleware('role:agent,lead');
+    Route::post('/v1/ai/reply', [AIAnalysisController::class, 'reply'])
         ->middleware('role:agent,lead');
 });

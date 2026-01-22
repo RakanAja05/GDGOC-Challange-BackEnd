@@ -6,7 +6,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost"
+      "value": "http://localhost:8000"
     },
     {
       "key": "token",
@@ -213,7 +213,7 @@
       "response": []
     },
     {
-      "name": "AI Issue Classification (requires agent/lead)",
+      "name": "AI Inbox Intelligence (requires agent/lead)",
       "request": {
         "method": "POST",
         "header": [
@@ -231,7 +231,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "raw": "{{baseUrl}}/api/v1/ai/inbox",
           "host": [
             "{{baseUrl}}"
           ],
@@ -239,49 +239,12 @@
             "api",
             "v1",
             "ai",
-            "analyze"
+            "inbox"
           ]
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"issue\"\n}"
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "AI Sentiment Analysis (requires agent/lead)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Accept",
-            "value": "application/json"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token}}"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/ai/analyze",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "ai",
-            "analyze"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"sentiment\"\n}"
+          "raw": "{\n  \"conversation_id\": {{conversationId}}\n}"
         }
       },
       "response": []
@@ -305,7 +268,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "raw": "{{baseUrl}}/api/v1/ai/summary",
           "host": [
             "{{baseUrl}}"
           ],
@@ -313,18 +276,18 @@
             "api",
             "v1",
             "ai",
-            "analyze"
+            "summary"
           ]
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"summary\"\n}"
+          "raw": "{\n  \"conversation_id\": {{conversationId}}\n}"
         }
       },
       "response": []
     },
     {
-      "name": "AI Response Suggestion (requires agent/lead)",
+      "name": "AI Reply Suggestion (requires agent/lead)",
       "request": {
         "method": "POST",
         "header": [
@@ -342,7 +305,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/ai/analyze",
+          "raw": "{{baseUrl}}/api/v1/ai/reply",
           "host": [
             "{{baseUrl}}"
           ],
@@ -350,49 +313,12 @@
             "api",
             "v1",
             "ai",
-            "analyze"
+            "reply"
           ]
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"reply\"\n}"
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "AI Priority Indicator (requires agent/lead)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Accept",
-            "value": "application/json"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token}}"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/ai/analyze",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "ai",
-            "analyze"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}},\n  \"type\": \"priority\"\n}"
+          "raw": "{\n  \"conversation_id\": {{conversationId}}\n}"
         }
       },
       "response": []

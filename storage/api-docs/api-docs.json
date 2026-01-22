@@ -6,6 +6,284 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/api/v1/ai/inbox": {
+            "post": {
+                "tags": [
+                    "AI Insights"
+                ],
+                "summary": "Inbox AI (issue, sentiment, priority)",
+                "description": "Auto-triggered after a customer message is saved. Only users with roles agent or lead can access this endpoint.",
+                "operationId": "3c37fa8a6a0da88dbf35fdb5b7bb045e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "conversation_id"
+                                ],
+                                "properties": {
+                                    "conversation_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Inbox AI result",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "conversation_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "issue_category": {
+                                                    "type": "string",
+                                                    "example": "login issue"
+                                                },
+                                                "sentiment": {
+                                                    "type": "string",
+                                                    "example": "negative"
+                                                },
+                                                "sentiment_score": {
+                                                    "type": "number",
+                                                    "example": 0.12
+                                                },
+                                                "priority": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "low",
+                                                        "medium",
+                                                        "high"
+                                                    ],
+                                                    "example": "high"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "issue": {
+                                                    "type": "object",
+                                                    "additionalProperties": true
+                                                },
+                                                "sentiment": {
+                                                    "type": "object",
+                                                    "additionalProperties": true
+                                                },
+                                                "priority": {
+                                                    "type": "object",
+                                                    "additionalProperties": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (role: agent or lead)"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/ai/summary": {
+            "post": {
+                "tags": [
+                    "AI Insights"
+                ],
+                "summary": "Conversation summary (on demand)",
+                "description": "Generates summary once and caches it until a new message arrives.",
+                "operationId": "965f1847b977ccebc864f61047c6cd74",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "conversation_id"
+                                ],
+                                "properties": {
+                                    "conversation_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Summary result",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "conversation_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "summary": {
+                                                    "type": "string",
+                                                    "example": "Customer cannot login."
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "cached": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "fallback": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (role: agent or lead)"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/ai/reply": {
+            "post": {
+                "tags": [
+                    "AI Insights"
+                ],
+                "summary": "Suggested reply (manual trigger)",
+                "description": "Generates a fresh reply draft; no caching and no persistence.",
+                "operationId": "b176cae2c2ee19ab679ab44d43468e8d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "conversation_id"
+                                ],
+                                "properties": {
+                                    "conversation_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reply suggestion result",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "conversation_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "reply": {
+                                                    "type": "string",
+                                                    "example": "Hi, we are checking your issue."
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "fallback": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (role: agent or lead)"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/conversations": {
             "get": {
                 "tags": [
@@ -123,6 +401,15 @@
                         "schema": {
                             "type": "integer"
                         }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
                     }
                 ],
                 "responses": {
@@ -199,38 +486,6 @@
                 ]
             }
         },
-        "/api/conversations/{conversation}/ai-analysis": {
-            "post": {
-                "tags": [
-                    "Conversations"
-                ],
-                "summary": "Trigger AI analysis for a conversation",
-                "operationId": "ef977d427b6827e3c05d7114446b58d9",
-                "parameters": [
-                    {
-                        "name": "conversation",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "AI insight"
-                    },
-                    "401": {
-                        "description": "Unauthenticated"
-                    }
-                },
-                "security": [
-                    {
-                        "sanctum": []
-                    }
-                ]
-            }
-        },
         "/api/login": {
             "post": {
                 "tags": [
@@ -266,8 +521,11 @@
                     }
                 },
                 "responses": {
-                    "204": {
+                    "200": {
                         "description": "Logged in"
+                    },
+                    "401": {
+                        "description": "Invalid credentials"
                     },
                     "422": {
                         "description": "Validation error"
@@ -284,7 +542,7 @@
                 "description": "Destroy an authenticated session.",
                 "operationId": "0ab4e3cf7bc4f7ec81b48f7928c7de7c",
                 "responses": {
-                    "204": {
+                    "200": {
                         "description": "Logged out"
                     },
                     "401": {
@@ -585,6 +843,10 @@
         }
     },
     "tags": [
+        {
+            "name": "AI Insights",
+            "description": "AI Insights"
+        },
         {
             "name": "Conversations",
             "description": "Conversations"

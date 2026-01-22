@@ -32,16 +32,86 @@ class AIAnalysisService
     }
 
     /**
-     * Centralized entry point: caches successful responses per conversation+type and
-     * gracefully falls back when AI output is invalid or times out.
+     * Auto inbox intelligence: issue classification, sentiment analysis, and priority.
+     *
+     * @return array{data: array<string, mixed>, meta: array<string, mixed>}
+     */
+    public function analyzeInbox(Conversation $conversation): array
+    {
+        $conversationText = $this->buildConversationText($conversation);
+
+        $issue = $this->analyzeType($conversation, AiAnalysisType::Issue, $conversationText, cache: true, persist: true);
+        $sentiment = $this->analyzeType($conversation, AiAnalysisType::Sentiment, $conversationText, cache: true, persist: true);
+        $priority = $this->analyzeType($conversation, AiAnalysisType::Priority, $conversationText, cache: true, persist: true);
+
+        $priorityData = $priority['data'];
+
+        if (($sentiment['data']['label'] ?? null) === 'negative') {
+            $priorityData = array_merge($priorityData, ['priority' => 'high']);
+            Cache::put($this->cacheKey($conversation->id, AiAnalysisType::Priority), $priorityData, self::CACHE_TTL_SECONDS);
+        }
+
+        $this->persistInboxResults($conversation, $issue['data'], $sentiment['data'], $priorityData);
+
+        return [
+            'data' => [
+                'issue_category' => $issue['data']['category'] ?? null,
+                'sentiment' => $sentiment['data']['label'] ?? null,
+                'sentiment_score' => $sentiment['data']['confidence'] ?? null,
+                'priority' => $priorityData['priority'] ?? null,
+            ],
+            'meta' => [
+                'issue' => ['cached' => $issue['cached'], 'fallback' => $issue['fallback']],
+                'sentiment' => ['cached' => $sentiment['cached'], 'fallback' => $sentiment['fallback']],
+                'priority' => ['cached' => $priority['cached'], 'fallback' => $priority['fallback']],
+            ],
+        ];
+    }
+
+    /**
+     * Conversation summary (cached, invalidated on new message).
      *
      * @return array{data: array<string, mixed>, cached: bool, fallback: bool}
      */
-    public function analyze(Conversation $conversation, AiAnalysisType $type): array
+    public function getSummary(Conversation $conversation): array
     {
+        return $this->analyzeType($conversation, AiAnalysisType::Summary, $this->buildConversationText($conversation), cache: true, persist: true);
+    }
+
+    /**
+     * Suggested reply (no cache, no persistence).
+     *
+     * @return array{data: array<string, mixed>, cached: bool, fallback: bool}
+     */
+    public function suggestReply(Conversation $conversation): array
+    {
+        return $this->analyzeType($conversation, AiAnalysisType::Reply, $this->buildConversationText($conversation), cache: false, persist: false);
+    }
+
+    private function buildConversationText(Conversation $conversation): string
+    {
+        $messages = $conversation->messages()
+            ->orderBy('created_at')
+            ->get(['sender_type', 'content']);
+
+        return $messages->map(function ($message) {
+            return strtoupper((string) $message->sender_type).': '.$message->content;
+        })->implode("\n");
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function analyzeType(
+        Conversation $conversation,
+        AiAnalysisType $type,
+        string $conversationText,
+        bool $cache,
+        bool $persist
+    ): array {
         $cacheKey = $this->cacheKey($conversation->id, $type);
 
-        if (Cache::has($cacheKey)) {
+        if ($cache && Cache::has($cacheKey)) {
             return [
                 'data' => Cache::get($cacheKey, []),
                 'cached' => true,
@@ -64,12 +134,16 @@ class AIAnalysisService
             ];
         }
 
-        $conversationText = $this->buildConversationText($conversation);
-
         try {
             $data = $handler->handle($conversationText);
-            $this->persistResult($conversation, $type, $data);
-            Cache::put($cacheKey, $data, self::CACHE_TTL_SECONDS);
+
+            if ($persist) {
+                $this->persistResult($conversation, $type, $data);
+            }
+
+            if ($cache) {
+                Cache::put($cacheKey, $data, self::CACHE_TTL_SECONDS);
+            }
 
             return [
                 'data' => $data,
@@ -91,53 +165,64 @@ class AIAnalysisService
         }
     }
 
-    private function buildConversationText(Conversation $conversation): string
-    {
-        $messages = $conversation->messages()
-            ->orderBy('created_at')
-            ->get(['sender_type', 'content']);
-
-        return $messages->map(function ($message) {
-            return strtoupper((string) $message->sender_type).': '.$message->content;
-        })->implode("\n");
-    }
-
     /**
      * @param array<string, mixed> $data
      */
     private function persistResult(Conversation $conversation, AiAnalysisType $type, array $data): void
     {
-        $payload = ['analyzed_at' => now()];
-
-        if ($type === AiAnalysisType::Sentiment) {
-            $payload['sentiment'] = $data['label'] ?? null;
-            $payload['sentiment_score'] = $data['confidence'] ?? null;
-        }
-
         if ($type === AiAnalysisType::Summary) {
-            $payload['summary'] = $data['summary'] ?? null;
-        }
-
-        if ($type === AiAnalysisType::Issue) {
-            $payload['issue_category'] = $data['category'] ?? null;
-        }
-
-        if ($type === AiAnalysisType::Reply) {
-            $payload['suggested_reply'] = $data['reply'] ?? null;
-        }
-
-        if (! empty($payload)) {
             AiInsight::updateOrCreate(
                 ['conversation_id' => $conversation->id],
-                $payload
+                [
+                    'summary' => $data['summary'] ?? null,
+                    'analyzed_at' => now(),
+                ]
             );
+
+            return;
         }
 
         if ($type === AiAnalysisType::Priority) {
             $conversation->forceFill([
                 'priority' => $data['priority'] ?? 'medium',
             ])->save();
+
+            return;
         }
+
+        if ($type === AiAnalysisType::Sentiment) {
+            $conversation->forceFill([
+                'sentiment' => $data['label'] ?? null,
+                'sentiment_score' => $data['confidence'] ?? null,
+            ])->save();
+
+            return;
+        }
+
+        if ($type === AiAnalysisType::Issue) {
+            $conversation->forceFill([
+                'issue_category' => $data['category'] ?? null,
+            ])->save();
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $issue
+     * @param array<string, mixed> $sentiment
+     * @param array<string, mixed> $priority
+     */
+    private function persistInboxResults(
+        Conversation $conversation,
+        array $issue,
+        array $sentiment,
+        array $priority
+    ): void {
+        $conversation->forceFill([
+            'issue_category' => $issue['category'] ?? null,
+            'sentiment' => $sentiment['label'] ?? null,
+            'sentiment_score' => $sentiment['confidence'] ?? null,
+            'priority' => $priority['priority'] ?? $conversation->priority,
+        ])->save();
     }
 
     public function cacheKey(int $conversationId, AiAnalysisType $type): string
