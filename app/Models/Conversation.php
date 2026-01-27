@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\User;
 
 class Conversation extends Model
 {
@@ -16,7 +17,7 @@ class Conversation extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'customer_id',
+        'user_id',
         'status',
         'priority',
         'sentiment',
@@ -35,11 +36,11 @@ class Conversation extends Model
     ];
 
     /**
-     * @return BelongsTo<Customer, Conversation>
+     * @return BelongsTo<User, Conversation>
      */
-    public function customer(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(User::class);
     }
 
     /**

@@ -5,12 +5,50 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class ConversationController extends Controller
 {
+    private function customerUserId(?User $user): ?int
+    {
+        if (! $user || $user->role !== 'customer') {
+            return null;
+        }
+
+        return $user->id;
+    }
+
+    private function applySort(\Illuminate\Database\Eloquent\Builder $query, string $sortBy, string $sortDir): void
+    {
+        $sortDir = strtolower($sortDir) === 'asc' ? 'asc' : 'desc';
+
+        switch ($sortBy) {
+            case 'urgency':
+                // High priority first, then by last activity.
+                $query->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")
+                    ->orderBy('last_message_at', $sortDir)
+                    ->orderBy('id', $sortDir);
+                break;
+
+            case 'priority':
+                $query->orderByRaw("FIELD(priority, 'high', 'medium', 'low')");
+                $query->orderBy('last_message_at', 'desc')->orderByDesc('id');
+                break;
+
+            case 'oldest':
+                $query->orderBy('last_message_at', 'asc')->orderBy('id', 'asc');
+                break;
+
+            case 'newest':
+            default:
+                $query->orderBy('last_message_at', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+    }
+
     #[OA\Get(
         path: '/api/conversations',
         summary: 'List conversations',
@@ -21,6 +59,8 @@ class ConversationController extends Controller
             new OA\Parameter(name: 'priority', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['low', 'medium', 'high'])),
             new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
             new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100)),
+            new OA\Parameter(name: 'sort_by', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['newest', 'oldest', 'urgency', 'priority'])),
+            new OA\Parameter(name: 'sort_dir', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'])),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Conversation list'),
@@ -34,11 +74,19 @@ class ConversationController extends Controller
             'priority' => ['nullable', 'in:low,medium,high'],
             'search' => ['nullable', 'string', 'max:255'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'sort_by' => ['nullable', 'in:newest,oldest,urgency,priority'],
+            'sort_dir' => ['nullable', 'in:asc,desc'],
         ]);
 
         $query = Conversation::query()
-            ->with('customer')
+            ->with('user')
             ->withCount('messages');
+
+        $user = $request->user();
+        $customerUserId = $this->customerUserId($user);
+        if ($customerUserId !== null) {
+            $query->where('user_id', $customerUserId);
+        }
 
         if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
@@ -50,17 +98,19 @@ class ConversationController extends Controller
 
         if (! empty($validated['search'])) {
             $search = $validated['search'];
-            $query->whereHas('customer', function ($customerQuery) use ($search) {
-                $customerQuery->where('name', 'like', "%{$search}%")
+            $query->whereHas('user', function ($userQuery) use ($search) {
+                $userQuery->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
         $perPage = $validated['per_page'] ?? 20;
 
+        $sortBy = $validated['sort_by'] ?? 'newest';
+        $sortDir = $validated['sort_dir'] ?? 'desc';
+        $this->applySort($query, $sortBy, $sortDir);
+
         $conversations = $query
-            ->orderByDesc('last_message_at')
-            ->orderByDesc('id')
             ->paginate($perPage);
 
         return response()->json($conversations);
@@ -73,6 +123,8 @@ class ConversationController extends Controller
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100)),
+            new OA\Parameter(name: 'sort_by', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['urgency', 'newest', 'oldest', 'priority'])),
+            new OA\Parameter(name: 'sort_dir', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'])),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Inbox list'),
@@ -83,14 +135,19 @@ class ConversationController extends Controller
     {
         $validated = $request->validate([
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'sort_by' => ['nullable', 'in:urgency,newest,oldest,priority'],
+            'sort_dir' => ['nullable', 'in:asc,desc'],
         ]);
 
         $perPage = $validated['per_page'] ?? 20;
 
-        $conversations = Conversation::query()
+        $user = $request->user();
+        $customerUserId = $this->customerUserId($user);
+
+        $query = Conversation::query()
             ->select([
                 'id',
-                'customer_id',
+                'user_id',
                 'status',
                 'priority',
                 'sentiment',
@@ -102,11 +159,18 @@ class ConversationController extends Controller
                 'updated_at',
             ])
             ->with([
-                'customer:id,name',
-            ])
-            ->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")
-            ->orderByDesc('last_message_at')
-            ->orderByDesc('id')
+                'user:id,name',
+            ]);
+
+        if ($customerUserId !== null) {
+            $query->where('user_id', $customerUserId);
+        }
+
+        $sortBy = $validated['sort_by'] ?? 'urgency';
+        $sortDir = $validated['sort_dir'] ?? 'desc';
+        $this->applySort($query, $sortBy, $sortDir);
+
+        $conversations = $query
             ->paginate($perPage)
             ->through(function (Conversation $conversation) {
                 return [
@@ -115,7 +179,7 @@ class ConversationController extends Controller
                     'priority' => $conversation->priority,
                     'last_message_from' => $conversation->last_message_from,
                     'last_message_at' => $conversation->last_message_at,
-                    'customer_name' => $conversation->customer?->name,
+                    'customer_name' => $conversation->user?->name,
                     'sentiment' => $conversation->sentiment,
                     'sentiment_score' => $conversation->sentiment_score,
                     'issue_category' => $conversation->issue_category,
@@ -145,8 +209,15 @@ class ConversationController extends Controller
             'before_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
+        $user = $request->user();
+        $customerUserId = $this->customerUserId($user);
+        if ($customerUserId !== null && (int) $conversation->user_id !== (int) $customerUserId) {
+            // Avoid leaking existence of other customers' conversations.
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         $conversation->load([
-            'customer',
+            'user',
             'aiInsight',
         ]);
 
@@ -182,7 +253,7 @@ class ConversationController extends Controller
 
     #[OA\Post(
         path: '/api/conversations/{conversation}/messages',
-        summary: 'Send agent reply',
+        summary: 'Send a message to a conversation',
         tags: ['Conversations'],
         security: [['sanctum' => []]],
         parameters: [
@@ -194,7 +265,6 @@ class ConversationController extends Controller
                 required: ['content'],
                 properties: [
                     new OA\Property(property: 'content', type: 'string', example: 'We are looking into your issue.'),
-                    new OA\Property(property: 'sender_id', type: 'integer', nullable: true, example: 1),
                 ]
             )
         ),
@@ -208,27 +278,33 @@ class ConversationController extends Controller
     {
         $validated = $request->validate([
             'content' => ['required', 'string'],
-            'sender_id' => ['nullable', 'exists:users,id'],
         ]);
 
-        $senderId = $request->user()?->id ?? $validated['sender_id'] ?? null;
+        $user = $request->user();
+        $customerUserId = $this->customerUserId($user);
+        if ($customerUserId !== null && (int) $conversation->user_id !== (int) $customerUserId) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $senderType = ($user && $user->role === 'customer') ? 'customer' : 'agent';
+        $senderId = $senderType === 'agent' ? ($user?->id) : null;
 
         $message = Message::create([
             'conversation_id' => $conversation->id,
-            'sender_type' => 'agent',
+            'sender_type' => $senderType,
             'sender_id' => $senderId,
             'content' => $validated['content'],
             'created_at' => now(),
         ]);
 
         $conversation->forceFill([
-            'last_message_from' => 'agent',
+            'last_message_from' => $senderType,
             'last_message_at' => now(),
-            'status' => 'pending',
+            'status' => $senderType === 'customer' ? 'open' : 'pending',
         ])->save();
 
         $conversation->load([
-            'customer',
+            'user',
             'aiInsight',
             'messages' => function ($query) {
                 $query->with('sender')->orderBy('created_at');
