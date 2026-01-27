@@ -10,6 +10,7 @@ use App\Services\Auth\EmailVerificationOtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use OpenApi\Attributes as OA;
 
 class EmailVerificationOtpController extends Controller
 {
@@ -18,6 +19,25 @@ class EmailVerificationOtpController extends Controller
     ) {
     }
 
+    #[OA\Post(
+        path: '/api/email/verification/request',
+        summary: 'Request email verification OTP',
+        description: 'Always responds with success to avoid user enumeration.',
+        tags: ['Email Verification'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'jane@example.com'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'OTP requested (sent if applicable)'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
     public function request(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -40,6 +60,25 @@ class EmailVerificationOtpController extends Controller
         return response()->json(['message' => 'Verification code sent.'], 200);
     }
 
+    #[OA\Post(
+        path: '/api/email/verification/verify',
+        summary: 'Verify email via OTP code',
+        tags: ['Email Verification'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'code'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'jane@example.com'),
+                    new OA\Property(property: 'code', type: 'string', example: '123456', description: 'Digits-only OTP'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Verified (or already verified)'),
+            new OA\Response(response: 422, description: 'Invalid/expired code or validation error'),
+        ]
+    )]
     public function verify(Request $request): JsonResponse
     {
         $length = (int) env('EMAIL_VERIFICATION_OTP_LENGTH', 6);
@@ -87,6 +126,18 @@ class EmailVerificationOtpController extends Controller
         ], 200);
     }
 
+    #[OA\Get(
+        path: '/api/email/verification/status',
+        summary: 'Check email verification status',
+        tags: ['Email Verification'],
+        parameters: [
+            new OA\Parameter(name: 'email', in: 'query', required: true, schema: new OA\Schema(type: 'string', format: 'email'), example: 'jane@example.com'),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Status returned'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
     public function status(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -125,6 +176,25 @@ class EmailVerificationOtpController extends Controller
     /**
      * Dev-only: exposes the latest OTP code so the frontend can read it during local/testing.
      */
+    #[OA\Post(
+        path: '/api/email/verification/code',
+        summary: 'Dev-only: get latest OTP code (local/testing only)',
+        tags: ['Email Verification'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'jane@example.com'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'OTP code returned (dev only)'),
+            new OA\Response(response: 404, description: 'Not found / not available'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
     public function code(Request $request): JsonResponse
     {
         if (! app()->environment(['local', 'testing'])) {
