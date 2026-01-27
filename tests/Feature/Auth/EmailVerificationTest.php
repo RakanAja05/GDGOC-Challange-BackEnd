@@ -2,11 +2,12 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\EmailVerificationOtp;
+use App\Models\EmailVerificationStatus;
 use App\Models\User;
-use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class EmailVerificationTest extends TestCase
@@ -17,32 +18,55 @@ class EmailVerificationTest extends TestCase
     {
         $user = User::factory()->unverified()->create();
 
-        Event::fake();
+        EmailVerificationStatus::create([
+            'user_id' => $user->id,
+            'status' => 'unverified',
+            'verified_at' => null,
+        ]);
 
-        $verificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1($user->email)]
-        );
+        EmailVerificationOtp::create([
+            'user_id' => $user->id,
+            'code_hash' => Hash::make('123456'),
+            'code_encrypted' => null,
+            'expires_at' => Carbon::now()->addMinutes(10),
+            'used_at' => null,
+        ]);
 
-        $response = $this->actingAs($user)->get($verificationUrl);
+        $response = $this->postJson('/api/email/verification/verify', [
+            'email' => $user->email,
+            'code' => '123456',
+        ]);
 
-        Event::assertDispatched(Verified::class);
+        $response->assertOk();
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
-        $response->assertRedirect(config('app.frontend_url').'/dashboard?verified=1');
+
+        $status = EmailVerificationStatus::query()->where('user_id', $user->id)->first();
+        $this->assertNotNull($status);
+        $this->assertSame('verified', $status->status);
     }
 
-    public function test_email_is_not_verified_with_invalid_hash(): void
+    public function test_email_is_not_verified_with_invalid_code(): void
     {
         $user = User::factory()->unverified()->create();
 
-        $verificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1('wrong-email')]
-        );
+        EmailVerificationStatus::create([
+            'user_id' => $user->id,
+            'status' => 'unverified',
+            'verified_at' => null,
+        ]);
 
-        $this->actingAs($user)->get($verificationUrl);
+        EmailVerificationOtp::create([
+            'user_id' => $user->id,
+            'code_hash' => Hash::make('123456'),
+            'code_encrypted' => null,
+            'expires_at' => Carbon::now()->addMinutes(10),
+            'used_at' => null,
+        ]);
+
+        $this->postJson('/api/email/verification/verify', [
+            'email' => $user->email,
+            'code' => '000000',
+        ])->assertStatus(422);
 
         $this->assertFalse($user->fresh()->hasVerifiedEmail());
     }

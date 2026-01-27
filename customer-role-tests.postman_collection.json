@@ -13,8 +13,20 @@
       "value": ""
     },
     {
+      "key": "email",
+      "value": "customer1@example.com"
+    },
+    {
+      "key": "password",
+      "value": "password"
+    },
+    {
       "key": "conversationId",
       "value": "1"
+    },
+    {
+      "key": "otpCode",
+      "value": ""
     }
   ],
   "item": [
@@ -44,7 +56,145 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Customer One\",\n  \"email\": \"customer1@example.com\",\n  \"password\": \"password\",\n  \"password_confirmation\": \"password\"\n}"
+          "raw": "{\n  \"name\": \"Customer One\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get OTP Code (dev-only)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.code) { pm.collectionVariables.set('otpCode', String(json.code)); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/email/verification/code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "email",
+            "verification",
+            "code"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Email Verification Status (customer)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/email/verification/status?email={{email}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "email",
+            "verification",
+            "status"
+          ],
+          "query": [
+            {
+              "key": "email",
+              "value": "{{email}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Resend Email Verification OTP (customer, optional)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/email/verification/request",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "email",
+            "verification",
+            "request"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Verify Email OTP (customer)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/email/verification/verify",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "email",
+            "verification",
+            "verify"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{otpCode}}\"\n}"
         }
       },
       "response": []
@@ -87,7 +237,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"customer1@example.com\",\n  \"password\": \"password\"\n}"
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
         }
       },
       "response": []
@@ -121,6 +271,19 @@
     },
     {
       "name": "Inbox (customer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "const first = json && json.data && json.data.length ? json.data[0] : null;",
+              "if (first && first.id) { pm.collectionVariables.set('conversationId', String(first.id)); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [
