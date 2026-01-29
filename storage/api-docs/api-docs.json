@@ -626,6 +626,51 @@
                         "sanctum": []
                     }
                 ]
+            },
+            "post": {
+                "tags": [
+                    "Conversations"
+                ],
+                "summary": "Create a conversation with first message",
+                "operationId": "316073d2250b45b7a44a1d9e6d211fd7",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "content"
+                                ],
+                                "properties": {
+                                    "content": {
+                                        "type": "string",
+                                        "example": "Halo, saya butuh bantuan untuk akun saya."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Conversation created"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/conversations/inbox": {
@@ -708,7 +753,7 @@
                 "tags": [
                     "Conversations"
                 ],
-                "summary": "Send agent reply",
+                "summary": "Send a message to a conversation",
                 "operationId": "18ef3485ad7c8e27090e700283f2bd02",
                 "parameters": [
                     {
@@ -732,11 +777,6 @@
                                     "content": {
                                         "type": "string",
                                         "example": "We are looking into your issue."
-                                    },
-                                    "sender_id": {
-                                        "type": "integer",
-                                        "example": 1,
-                                        "nullable": true
                                     }
                                 },
                                 "type": "object"

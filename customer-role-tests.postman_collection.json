@@ -9,20 +9,40 @@
       "value": "http://localhost:8000"
     },
     {
-      "key": "token",
+      "key": "userToken",
       "value": ""
     },
     {
-      "key": "email",
-      "value": "customer1@example.com"
+      "key": "userName",
+      "value": "Andi Prasetyo"
     },
     {
-      "key": "password",
+      "key": "userEmail",
+      "value": "andi@example.com"
+    },
+    {
+      "key": "userPassword",
+      "value": "password"
+    },
+    {
+      "key": "agentToken",
+      "value": ""
+    },
+    {
+      "key": "agentEmail",
+      "value": "agent@example.com"
+    },
+    {
+      "key": "agentPassword",
       "value": "password"
     },
     {
       "key": "conversationId",
-      "value": "1"
+      "value": ""
+    },
+    {
+      "key": "agentConversationId",
+      "value": ""
     },
     {
       "key": "otpCode",
@@ -31,7 +51,7 @@
   ],
   "item": [
     {
-      "name": "Register (customer)",
+      "name": "Register (user)",
       "request": {
         "method": "POST",
         "header": [
@@ -56,7 +76,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"Customer One\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\"\n}"
+          "raw": "{\n  \"name\": \"{{userName}}\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\",\n  \"password_confirmation\": \"{{userPassword}}\"\n}"
         }
       },
       "response": []
@@ -101,13 +121,13 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\"\n}"
+          "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
         }
       },
       "response": []
     },
     {
-      "name": "Email Verification Status (customer)",
+      "name": "Email Verification Status (user)",
       "request": {
         "method": "GET",
         "header": [
@@ -117,7 +137,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/email/verification/status?email={{email}}",
+          "raw": "{{baseUrl}}/api/email/verification/status?email={{userEmail}}",
           "host": [
             "{{baseUrl}}"
           ],
@@ -130,7 +150,7 @@
           "query": [
             {
               "key": "email",
-              "value": "{{email}}"
+              "value": "{{userEmail}}"
             }
           ]
         }
@@ -138,7 +158,7 @@
       "response": []
     },
     {
-      "name": "Resend Email Verification OTP (customer, optional)",
+      "name": "Resend Email Verification OTP (user, optional)",
       "request": {
         "method": "POST",
         "header": [
@@ -161,13 +181,13 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\"\n}"
+          "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
         }
       },
       "response": []
     },
     {
-      "name": "Verify Email OTP (customer)",
+      "name": "Verify Email OTP (user)",
       "request": {
         "method": "POST",
         "header": [
@@ -194,20 +214,20 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{otpCode}}\"\n}"
+          "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"code\": \"{{otpCode}}\"\n}"
         }
       },
       "response": []
     },
     {
-      "name": "Login (customer)",
+      "name": "Login (user)",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
               "const json = pm.response.json();",
-              "if (json && json.token) { pm.collectionVariables.set('token', json.token); }"
+              "if (json && json.token) { pm.collectionVariables.set('userToken', json.token); }"
             ],
             "type": "text/javascript"
           }
@@ -237,7 +257,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+          "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
         }
       },
       "response": []
@@ -253,7 +273,7 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{userToken}}"
           }
         ],
         "url": {
@@ -270,7 +290,54 @@
       "response": []
     },
     {
-      "name": "Inbox (customer)",
+      "name": "Start Conversation (user)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.id) { pm.collectionVariables.set('conversationId', String(json.id)); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{userToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "conversations"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"content\": \"Halo, saya butuh bantuan untuk akun saya.\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Inbox (user)",
       "event": [
         {
           "listen": "test",
@@ -293,11 +360,11 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{userToken}}"
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/conversations/inbox",
+          "raw": "{{baseUrl}}/api/conversations/inbox?sort_by=newest&sort_dir=desc",
           "host": [
             "{{baseUrl}}"
           ],
@@ -305,13 +372,23 @@
             "api",
             "conversations",
             "inbox"
+          ],
+          "query": [
+            {
+              "key": "sort_by",
+              "value": "newest"
+            },
+            {
+              "key": "sort_dir",
+              "value": "desc"
+            }
           ]
         }
       },
       "response": []
     },
     {
-      "name": "Conversation Detail (customer)",
+      "name": "Conversation Detail (user)",
       "request": {
         "method": "GET",
         "header": [
@@ -321,7 +398,7 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{userToken}}"
           }
         ],
         "url": {
@@ -339,7 +416,7 @@
       "response": []
     },
     {
-      "name": "Send Reply (customer)",
+      "name": "Send Reply (user)",
       "request": {
         "method": "POST",
         "header": [
@@ -353,7 +430,7 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{userToken}}"
           }
         ],
         "url": {
@@ -376,6 +453,100 @@
       "response": []
     },
     {
+      "name": "Login (agent seeded)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.token) { pm.collectionVariables.set('agentToken', json.token); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{agentEmail}}\",\n  \"password\": \"{{agentPassword}}\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Inbox (agent, urgency)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "const first = json && json.data && json.data.length ? json.data[0] : null;",
+              "if (first && first.id) { pm.collectionVariables.set('agentConversationId', String(first.id)); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{agentToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/conversations/inbox?sort_by=urgency&sort_dir=desc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "conversations",
+            "inbox"
+          ],
+          "query": [
+            {
+              "key": "sort_by",
+              "value": "urgency"
+            },
+            {
+              "key": "sort_dir",
+              "value": "desc"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
       "name": "AI Inbox Intelligence (requires agent/lead)",
       "request": {
         "method": "POST",
@@ -390,7 +561,7 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{agentToken}}"
           }
         ],
         "url": {
@@ -407,7 +578,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}}\n}"
+          "raw": "{\n  \"conversation_id\": {{agentConversationId}}\n}"
         }
       },
       "response": []
@@ -427,7 +598,7 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{agentToken}}"
           }
         ],
         "url": {
@@ -444,7 +615,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}}\n}"
+          "raw": "{\n  \"conversation_id\": {{agentConversationId}}\n}"
         }
       },
       "response": []
@@ -464,7 +635,7 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{agentToken}}"
           }
         ],
         "url": {
@@ -481,13 +652,13 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"conversation_id\": {{conversationId}}\n}"
+          "raw": "{\n  \"conversation_id\": {{agentConversationId}}\n}"
         }
       },
       "response": []
     },
     {
-      "name": "Logout (customer)",
+      "name": "Logout (user)",
       "request": {
         "method": "POST",
         "header": [
@@ -497,7 +668,7 @@
           },
           {
             "key": "Authorization",
-            "value": "Bearer {{token}}"
+            "value": "Bearer {{userToken}}"
           }
         ],
         "url": {

@@ -28,6 +28,8 @@ Route::post('/email/verification/code', [EmailVerificationOtpController::class, 
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('/conversations/inbox', [ConversationController::class, 'inbox']);
     Route::get('/conversations', [ConversationController::class, 'index']);
+    Route::post('/conversations', [ConversationController::class, 'store'])
+        ->middleware('role:user');
     Route::get('/conversations/{conversation}', [ConversationController::class, 'show']);
     Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'sendReply']);
     Route::post('/v1/ai/inbox', [AIAnalysisController::class, 'inbox'])

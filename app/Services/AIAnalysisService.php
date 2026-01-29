@@ -91,11 +91,14 @@ class AIAnalysisService
     private function buildConversationText(Conversation $conversation): string
     {
         $messages = $conversation->messages()
+            ->with('sender:id,role')
             ->orderBy('created_at')
-            ->get(['sender_type', 'content']);
+            ->get(['id', 'sender_id', 'content']);
 
         return $messages->map(function ($message) {
-            return strtoupper((string) $message->sender_type).': '.$message->content;
+            $role = $message->sender?->role ?? 'user';
+            $label = $role === 'user' ? 'USER' : 'AGENT';
+            return $label.': '.$message->content;
         })->implode("\n");
     }
 

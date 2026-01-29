@@ -21,7 +21,6 @@ class Message extends Model
      */
     protected $fillable = [
         'conversation_id',
-        'sender_type',
         'sender_id',
         'content',
         'created_at',
@@ -43,8 +42,6 @@ class Message extends Model
     }
 
     /**
-     * Agent sender (nullable when sender_type is customer).
-     *
      * @return BelongsTo<User, Message>
      */
     public function sender(): BelongsTo
@@ -61,7 +58,9 @@ class Message extends Model
 
             Cache::forget("ai:{$message->conversation_id}:".AiAnalysisType::Summary->value);
 
-            if ($message->sender_type !== 'customer') {
+            $sender = $message->sender()->first();
+
+            if (! $sender || $sender->role !== 'user') {
                 return;
             }
 

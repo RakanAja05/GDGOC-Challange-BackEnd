@@ -7,10 +7,20 @@ use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class ConversationController extends Controller
 {
+    private function userIdForUser(?\App\Models\User $user): ?int
+    {
+        if (! $user || $user->role !== 'user') {
+            return null;
+        }
+
+        return $user->id;
+    }
+
     #[OA\Get(
         path: '/api/conversations',
         summary: 'List conversations',
@@ -37,8 +47,13 @@ class ConversationController extends Controller
         ]);
 
         $query = Conversation::query()
-            ->with('customer')
+            ->with('user')
             ->withCount('messages');
+
+        $userId = $this->userIdForUser($request->user());
+        if ($userId !== null) {
+            $query->where('user_id', $userId);
+        }
 
         if (! empty($validated['status'])) {
             $query->where('status', $validated['status']);
@@ -50,8 +65,8 @@ class ConversationController extends Controller
 
         if (! empty($validated['search'])) {
             $search = $validated['search'];
-            $query->whereHas('customer', function ($customerQuery) use ($search) {
-                $customerQuery->where('name', 'like', "%{$search}%")
+            $query->whereHas('user', function ($userQuery) use ($search) {
+                $userQuery->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             });
         }
@@ -64,6 +79,68 @@ class ConversationController extends Controller
             ->paginate($perPage);
 
         return response()->json($conversations);
+    }
+
+    #[OA\Post(
+        path: '/api/conversations',
+        summary: 'Create a conversation with first message',
+        tags: ['Conversations'],
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['content'],
+                properties: [
+                    new OA\Property(property: 'content', type: 'string', example: 'Halo, saya butuh bantuan untuk akun saya.'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Conversation created'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ]
+    )]
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'content' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        if (! $user || $user->role !== 'user') {
+            return response()->json(['message' => 'Only users can start conversations.'], 403);
+        }
+
+        $conversation = DB::transaction(function () use ($user, $validated) {
+            $conversation = Conversation::create([
+                'user_id' => $user->id,
+                'status' => 'open',
+                'priority' => 'medium',
+                'last_message_from' => 'user',
+                'last_message_at' => now(),
+            ]);
+
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'sender_id' => $user->id,
+                'content' => $validated['content'],
+                'created_at' => now(),
+            ]);
+
+            return $conversation;
+        });
+
+        $conversation->load([
+            'user',
+            'aiInsight',
+            'messages' => function ($query) {
+                $query->with('sender')->orderBy('created_at');
+            },
+        ]);
+
+        return response()->json($conversation, 201);
     }
 
     #[OA\Get(
@@ -87,10 +164,10 @@ class ConversationController extends Controller
 
         $perPage = $validated['per_page'] ?? 20;
 
-        $conversations = Conversation::query()
+        $query = Conversation::query()
             ->select([
                 'id',
-                'customer_id',
+                'user_id',
                 'status',
                 'priority',
                 'sentiment',
@@ -102,8 +179,15 @@ class ConversationController extends Controller
                 'updated_at',
             ])
             ->with([
-                'customer:id,name',
-            ])
+                'user:id,name',
+            ]);
+
+        $userId = $this->userIdForUser($request->user());
+        if ($userId !== null) {
+            $query->where('user_id', $userId);
+        }
+
+        $conversations = $query
             ->orderByRaw("FIELD(priority, 'high', 'medium', 'low')")
             ->orderByDesc('last_message_at')
             ->orderByDesc('id')
@@ -115,7 +199,7 @@ class ConversationController extends Controller
                     'priority' => $conversation->priority,
                     'last_message_from' => $conversation->last_message_from,
                     'last_message_at' => $conversation->last_message_at,
-                    'customer_name' => $conversation->customer?->name,
+                    'customer_name' => $conversation->user?->name,
                     'sentiment' => $conversation->sentiment,
                     'sentiment_score' => $conversation->sentiment_score,
                     'issue_category' => $conversation->issue_category,
@@ -145,8 +229,13 @@ class ConversationController extends Controller
             'before_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
+        $userId = $this->userIdForUser($request->user());
+        if ($userId !== null && (int) $conversation->user_id !== (int) $userId) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         $conversation->load([
-            'customer',
+            'user',
             'aiInsight',
         ]);
 
@@ -182,7 +271,7 @@ class ConversationController extends Controller
 
     #[OA\Post(
         path: '/api/conversations/{conversation}/messages',
-        summary: 'Send agent reply',
+        summary: 'Send a message to a conversation',
         tags: ['Conversations'],
         security: [['sanctum' => []]],
         parameters: [
@@ -194,7 +283,6 @@ class ConversationController extends Controller
                 required: ['content'],
                 properties: [
                     new OA\Property(property: 'content', type: 'string', example: 'We are looking into your issue.'),
-                    new OA\Property(property: 'sender_id', type: 'integer', nullable: true, example: 1),
                 ]
             )
         ),
@@ -208,27 +296,32 @@ class ConversationController extends Controller
     {
         $validated = $request->validate([
             'content' => ['required', 'string'],
-            'sender_id' => ['nullable', 'exists:users,id'],
         ]);
 
-        $senderId = $request->user()?->id ?? $validated['sender_id'] ?? null;
+        $user = $request->user();
+        $userId = $this->userIdForUser($user);
+        if ($userId !== null && (int) $conversation->user_id !== (int) $userId) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
 
-        $message = Message::create([
+        $senderRole = ($user && $user->role === 'user') ? 'user' : 'agent';
+        $senderId = $user?->id;
+
+        Message::create([
             'conversation_id' => $conversation->id,
-            'sender_type' => 'agent',
             'sender_id' => $senderId,
             'content' => $validated['content'],
             'created_at' => now(),
         ]);
 
         $conversation->forceFill([
-            'last_message_from' => 'agent',
+            'last_message_from' => $senderRole,
             'last_message_at' => now(),
-            'status' => 'pending',
+            'status' => $senderRole === 'user' ? 'open' : 'pending',
         ])->save();
 
         $conversation->load([
-            'customer',
+            'user',
             'aiInsight',
             'messages' => function ($query) {
                 $query->with('sender')->orderBy('created_at');

@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('conversations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->enum('status', ['open', 'pending', 'closed'])->default('open');
             $table->enum('priority', ['low', 'medium', 'high'])->default('medium');
-            $table->enum('last_message_from', ['customer', 'agent'])->nullable();
+            $table->enum('last_message_from', ['user', 'agent'])->nullable();
             $table->timestamp('last_message_at')->nullable();
             $table->timestamps();
         });
