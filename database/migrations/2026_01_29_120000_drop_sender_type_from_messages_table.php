@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasColumn('messages', 'sender_type')) {
+        if (! Schema::hasColumn('messages', 'sender_type')) {
             Schema::table('messages', function (Blueprint $table) {
-                $table->dropColumn('sender_type');
+                $table->enum('sender_type', ['user', 'agent'])->default('user')->after('conversation_id');
             });
         }
     }
@@ -23,9 +23,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (! Schema::hasColumn('messages', 'sender_type')) {
+        if (Schema::hasColumn('messages', 'sender_type')) {
             Schema::table('messages', function (Blueprint $table) {
-                $table->enum('sender_type', ['user', 'agent'])->default('user')->after('conversation_id');
+                $table->dropColumn('sender_type');
             });
         }
     }

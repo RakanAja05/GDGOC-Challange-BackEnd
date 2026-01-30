@@ -40,9 +40,9 @@ class AIAnalysisService
     {
         $conversationText = $this->buildConversationText($conversation);
 
-        $issue = $this->analyzeType($conversation, AiAnalysisType::Issue, $conversationText, cache: true, persist: true);
-        $sentiment = $this->analyzeType($conversation, AiAnalysisType::Sentiment, $conversationText, cache: true, persist: true);
-        $priority = $this->analyzeType($conversation, AiAnalysisType::Priority, $conversationText, cache: true, persist: true);
+        $issue = $this->analyzeType($conversation, AiAnalysisType::Issue, $conversationText, cache: true, persist: false);
+        $sentiment = $this->analyzeType($conversation, AiAnalysisType::Sentiment, $conversationText, cache: true, persist: false);
+        $priority = $this->analyzeType($conversation, AiAnalysisType::Priority, $conversationText, cache: true, persist: false);
 
         $priorityData = $priority['data'];
 
@@ -91,14 +91,14 @@ class AIAnalysisService
     private function buildConversationText(Conversation $conversation): string
     {
         $messages = $conversation->messages()
-            ->with('sender:id,role')
-            ->orderBy('created_at')
-            ->get(['id', 'sender_id', 'content']);
+            ->latest('created_at')
+            ->limit(20)
+            ->get(['sender_type', 'content'])
+            ->reverse()
+            ->values();
 
         return $messages->map(function ($message) {
-            $role = $message->sender?->role ?? 'user';
-            $label = $role === 'user' ? 'USER' : 'AGENT';
-            return $label.': '.$message->content;
+            return strtoupper((string) $message->sender_type).': '.$message->content;
         })->implode("\n");
     }
 
@@ -137,6 +137,8 @@ class AIAnalysisService
             ];
         }
 
+        $startedAt = microtime(true);
+
         try {
             $data = $handler->handle($conversationText);
 
@@ -148,6 +150,12 @@ class AIAnalysisService
                 Cache::put($cacheKey, $data, self::CACHE_TTL_SECONDS);
             }
 
+            Log::info('AI handler succeeded.', [
+                'type' => $type->value,
+                'conversation_id' => $conversation->id,
+                'execution_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
+
             return [
                 'data' => $data,
                 'cached' => false,
@@ -158,6 +166,7 @@ class AIAnalysisService
                 'type' => $type->value,
                 'conversation_id' => $conversation->id,
                 'error' => $exception->getMessage(),
+                'execution_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             ]);
 
             return [
@@ -231,5 +240,12 @@ class AIAnalysisService
     public function cacheKey(int $conversationId, AiAnalysisType $type): string
     {
         return "ai:{$conversationId}:{$type->value}";
+    }
+
+    public function invalidateConversationCache(int $conversationId): void
+    {
+        foreach (AiAnalysisType::cases() as $type) {
+            Cache::forget($this->cacheKey($conversationId, $type));
+        }
     }
 }

@@ -57,25 +57,25 @@ class ConversationMessageSeeder extends Seeder
             $messages = [
                 [
                     'sender_id' => $customerUser->id,
-                    'sender_role' => 'user',
+                    'sender_type' => 'user',
                     'content' => 'Halo, saya butuh bantuan untuk akun saya.',
                     'created_at' => Carbon::now()->subMinutes(12),
                 ],
                 [
                     'sender_id' => $agent->id,
-                    'sender_role' => 'agent',
+                    'sender_type' => 'agent',
                     'content' => 'Halo! Tentu, bisa jelaskan masalahnya?',
                     'created_at' => Carbon::now()->subMinutes(10),
                 ],
                 [
                     'sender_id' => $customerUser->id,
-                    'sender_role' => 'user',
+                    'sender_type' => 'user',
                     'content' => 'Saya tidak bisa login sejak pagi.',
                     'created_at' => Carbon::now()->subMinutes(7),
                 ],
                 [
                     'sender_id' => $agent->id,
-                    'sender_role' => 'agent',
+                    'sender_type' => 'agent',
                     'content' => 'Baik, saya cek dulu. Mohon tunggu sebentar ya.',
                     'created_at' => Carbon::now()->subMinutes(5),
                 ],
@@ -84,6 +84,7 @@ class ConversationMessageSeeder extends Seeder
             foreach ($messages as $message) {
                 Message::create([
                     'conversation_id' => $conversation->id,
+                    'sender_type' => $message['sender_type'],
                     'sender_id' => $message['sender_id'],
                     'content' => $message['content'],
                     'created_at' => $message['created_at'],
@@ -93,7 +94,7 @@ class ConversationMessageSeeder extends Seeder
             $lastMessage = end($messages);
 
             $conversation->update([
-                'last_message_from' => $lastMessage['sender_role'],
+                'last_message_from' => $lastMessage['sender_type'],
                 'last_message_at' => $lastMessage['created_at'],
             ]);
         }

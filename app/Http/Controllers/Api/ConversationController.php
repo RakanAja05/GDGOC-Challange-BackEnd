@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Events\MessageCreated;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Http\JsonResponse;
@@ -113,7 +114,9 @@ class ConversationController extends Controller
             return response()->json(['message' => 'Only users can start conversations.'], 403);
         }
 
-        $conversation = DB::transaction(function () use ($user, $validated) {
+        $message = null;
+
+        $conversation = DB::transaction(function () use ($user, $validated, &$message) {
             $conversation = Conversation::create([
                 'user_id' => $user->id,
                 'status' => 'open',
@@ -122,8 +125,9 @@ class ConversationController extends Controller
                 'last_message_at' => now(),
             ]);
 
-            Message::create([
+            $message = Message::create([
                 'conversation_id' => $conversation->id,
+                'sender_type' => 'user',
                 'sender_id' => $user->id,
                 'content' => $validated['content'],
                 'created_at' => now(),
@@ -131,6 +135,10 @@ class ConversationController extends Controller
 
             return $conversation;
         });
+
+        if ($message) {
+            event(new MessageCreated($message));
+        }
 
         $conversation->load([
             'user',
@@ -304,20 +312,23 @@ class ConversationController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        $senderRole = ($user && $user->role === 'user') ? 'user' : 'agent';
+        $senderType = ($user && $user->role === 'user') ? 'user' : 'agent';
         $senderId = $user?->id;
 
-        Message::create([
+        $message = Message::create([
             'conversation_id' => $conversation->id,
+            'sender_type' => $senderType,
             'sender_id' => $senderId,
             'content' => $validated['content'],
             'created_at' => now(),
         ]);
 
+        event(new MessageCreated($message));
+
         $conversation->forceFill([
-            'last_message_from' => $senderRole,
+            'last_message_from' => $senderType,
             'last_message_at' => now(),
-            'status' => $senderRole === 'user' ? 'open' : 'pending',
+            'status' => $senderType === 'user' ? 'open' : 'pending',
         ])->save();
 
         $conversation->load([
