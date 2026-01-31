@@ -1,0 +1,18 @@
+.env
+
+# Dependencies
+/vendor
+/node_modules
+
+# VCS / tooling
+/.git
+
+# Laravel runtime files (not needed in build context)
+/storage/logs
+/storage/framework/cache
+
+# Common extras
+/storage/framework/sessions
+/storage/framework/views
+/.idea
+/.vscode

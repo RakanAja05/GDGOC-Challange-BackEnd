@@ -9,6 +9,72 @@
 
 ## About Laravel
 
+## Deploy to Google Cloud Run (Docker)
+
+This repo includes a production `Dockerfile` for Cloud Run.
+
+### 1) Build & run locally (optional)
+
+```bash
+docker build -t gdgoc-challange:local .
+docker run --rm -p 8080:8080 \
+	-e APP_KEY="base64:CHANGE_ME" \
+	-e APP_URL="http://localhost:8080" \
+	-e DB_CONNECTION="pgsql" \
+	-e DB_HOST="YOUR_DB_HOST" \
+	-e DB_PORT="5432" \
+	-e DB_DATABASE="YOUR_DB" \
+	-e DB_USERNAME="YOUR_DB_USER" \
+	-e DB_PASSWORD="YOUR_DB_PASSWORD" \
+	gdgoc-challange:local
+```
+
+### 2) Deploy to Cloud Run
+
+Enable required APIs once:
+
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
+```
+
+Create secrets (recommended) and upload values:
+
+```bash
+# Example: APP_KEY should be a real Laravel key
+gcloud secrets create APP_KEY --replication-policy="automatic"
+printf "%s" "base64:YOUR_REAL_APP_KEY" | gcloud secrets versions add APP_KEY --data-file=-
+
+gcloud secrets create DB_PASSWORD --replication-policy="automatic"
+printf "%s" "YOUR_DB_PASSWORD" | gcloud secrets versions add DB_PASSWORD --data-file=-
+```
+
+Deploy from source (Cloud Build will build the Dockerfile):
+
+```bash
+gcloud run deploy gdgoc-challange \
+	--source . \
+	--region asia-southeast2 \
+	--allow-unauthenticated \
+	--set-env-vars "APP_ENV=production,APP_DEBUG=false,LOG_CHANNEL=stderr" \
+	--set-env-vars "DB_CONNECTION=pgsql,DB_HOST=YOUR_DB_HOST,DB_PORT=5432,DB_DATABASE=YOUR_DB,DB_USERNAME=YOUR_DB_USER" \
+	--set-secrets "APP_KEY=APP_KEY:latest,DB_PASSWORD=DB_PASSWORD:latest"
+```
+
+Notes:
+
+- Cloud Run sets `PORT` automatically; the container listens on `8080`.
+- Do not bake `.env` into the image. Use Cloud Run env vars and Secret Manager.
+- If you need migrations, run them separately (e.g., Cloud Run Jobs / CI step) instead of on every container start.
+
+## Deploy to Railway
+
+Railway's default PHP builder may use PHP 8.2.x. This project (Laravel 12 + Symfony 8) requires PHP 8.4+, so `composer install` will fail on PHP 8.2.
+
+Recommended: deploy using the included `Dockerfile` (PHP 8.4).
+
+- In Railway, configure the service to build from `Dockerfile` (Docker build) instead of the default PHP/Nixpacks builder.
+- Ensure your service listens on `PORT` (the Dockerfile uses `php artisan serve --host=0.0.0.0 --port=${PORT:-8080}`).
+
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
 - [Simple, fast routing engine](https://laravel.com/docs/routing).

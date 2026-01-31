@@ -60,6 +60,16 @@ abstract class AbstractGeminiHandler implements AiAnalysisHandler
 
         $decoded = json_decode($clean, true);
 
+        if (! is_array($decoded)) {
+            $firstBrace = strpos($clean, '{');
+            $lastBrace = strrpos($clean, '}');
+
+            if ($firstBrace !== false && $lastBrace !== false && $lastBrace > $firstBrace) {
+                $candidate = substr($clean, $firstBrace, $lastBrace - $firstBrace + 1);
+                $decoded = json_decode($candidate, true);
+            }
+        }
+
         return is_array($decoded) ? $decoded : [];
     }
 }
